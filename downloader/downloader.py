@@ -5,6 +5,7 @@ from selenium import webdriver
 from bs4 import BeautifulSoup
 from downloader.link_extractor import get_all_links
 from downloader.assets_downloader import download_assets
+import time
 
 def start_download(base_url, download_directory, update_progress):
     # Ensure the download directory exists
@@ -14,6 +15,7 @@ def start_download(base_url, download_directory, update_progress):
     chrome_options = webdriver.ChromeOptions()
     prefs = {'download.default_directory': os.path.abspath(download_directory)}
     chrome_options.add_experimental_option('prefs', prefs)
+    chrome_options.add_argument("--headless")  # Run Chrome in headless mode
 
     # Initialize ChromeDriver
     driver = webdriver.Chrome(options=chrome_options)
@@ -52,9 +54,6 @@ def start_download(base_url, download_directory, update_progress):
         
         update_progress(f"Saved HTML: {html_filepath}")
 
-        # Download all assets
-        download_assets(soup, current_url, download_directory, downloaded_assets, update_progress)
-
         # Mark the current URL as visited
         visited.add(current_url)
 
@@ -62,7 +61,13 @@ def start_download(base_url, download_directory, update_progress):
         new_links = get_all_links(driver, current_url, visited)
         urls_to_visit.update(new_links)
         update_progress(f"Found {len(new_links)} new links")
-        update_progress(f"Total links to visit: {len(urls_to_visit)}")
+        update_progress(f"Total URLs to Visit: {len(urls_to_visit)}")
+        update_progress(f"Total Visited URLs: {len(visited)}")
+        progress = len(visited) / (len(visited) + len(urls_to_visit)) * 100
+        update_progress(f"Progress: {progress:.2f}%")
+        
+        # Download all assets
+        download_assets(soup, current_url, download_directory, downloaded_assets, update_progress)
 
     # Quit the WebDriver session
     driver.quit()

@@ -14,7 +14,7 @@ def download_file(url, directory, downloaded_assets, update_progress):
         file_path = os.path.join(subdir, os.path.basename(parsed_url.path))
         with open(file_path, 'wb') as file:
             file.write(response.content)
-        update_progress(f"Downloaded {url} to {file_path}")
+        update_progress(f"Asset: {url}")
         downloaded_assets.add(url)  # Add to the set of downloaded assets
     except requests.RequestException as e:
         update_progress(f"Failed to download {url}: {e}")
