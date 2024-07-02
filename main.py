@@ -6,10 +6,10 @@ from bs4 import BeautifulSoup
 import time
 
 # Base URL to start from
-base_url = "https://spruko.com/"
+base_url = "www.example.com"
 
 # Directory to save the downloaded files
-download_directory = "spruko"
+download_directory = "example"
 
 # Ensure the download directory exists
 os.makedirs(download_directory, exist_ok=True)
@@ -22,8 +22,13 @@ chrome_options.add_experimental_option('prefs', prefs)
 # Initialize ChromeDriver
 driver = webdriver.Chrome(options=chrome_options)
 
+# Set to keep track of downloaded asset URLs
+downloaded_assets = set()
+
 # Function to download a file
 def download_file(url, directory):
+    if url in downloaded_assets:
+        return  # Skip if already downloaded
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -34,6 +39,7 @@ def download_file(url, directory):
         with open(file_path, 'wb') as file:
             file.write(response.content)
         print(f"Downloaded {url} to {file_path}")
+        downloaded_assets.add(url)  # Add to the set of downloaded assets
     except requests.RequestException as e:
         print(f"Failed to download {url}: {e}")
 
@@ -100,6 +106,8 @@ while urls_to_visit:
     # Find new links and add them to the queue
     new_links = get_all_links(current_url, visited)
     urls_to_visit.update(new_links)
+    print(f"Found {len(new_links)} new links")
+    print(f"Total links to visit: {len(urls_to_visit)}")
 
 # Quit the WebDriver session
 driver.quit()
