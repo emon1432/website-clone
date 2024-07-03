@@ -26,8 +26,8 @@ def start_gui():
             asset_url_label.config(text=message.split("Asset: ")[-1])
         elif message.startswith("Total Visited URLs:"):
             total_visited_label.config(text=message.split("Total Visited URLs: ")[-1])
-        elif message.startswith("Total URLs to Visit:"):
-            total_urls_label.config(text=message.split("Total URLs to Visit: ")[-1])
+        elif message.startswith("Total URLs:"):
+            total_urls_label.config(text=message.split("Total URLs: ")[-1])
         elif message.startswith("Progress:"):
             progress = message.split("Progress: ")[-1]
             progress_label.config(text=progress)
@@ -53,7 +53,7 @@ def start_gui():
 
     tk.Label(progress_frame, text="Website Downloader", font=("Arial", 16, "bold")).pack(pady=10)
     
-    tk.Label(progress_frame, text="Total URLs to Visit: ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
+    tk.Label(progress_frame, text="Total URLs: ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
     total_urls_label = tk.Label(progress_frame, text="Calculating...")
     total_urls_label.pack(pady=5)
     

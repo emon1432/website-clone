@@ -61,7 +61,7 @@ def start_download(base_url, download_directory, update_progress):
         new_links = get_all_links(driver, current_url, visited)
         urls_to_visit.update(new_links)
         update_progress(f"Found {len(new_links)} new links")
-        update_progress(f"Total URLs to Visit: {len(urls_to_visit)}")
+        update_progress(f"Total URLs: {len(urls_to_visit) + len(visited)}")
         update_progress(f"Total Visited URLs: {len(visited)}")
         progress = len(visited) / (len(visited) + len(urls_to_visit)) * 100
         update_progress(f"Progress: {progress:.2f}%")
