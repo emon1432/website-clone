@@ -37,9 +37,12 @@ def start_download(base_url, download_directory, update_progress):
             html_subdir = download_directory
         os.makedirs(html_subdir, exist_ok=True)
         html_filename = os.path.basename(parsed_url.path) if os.path.basename(parsed_url.path) else 'index.html'
+        if os.path.isdir(os.path.join(html_subdir, html_filename)):
+            html_filename = 'index.html'
         html_filepath = os.path.join(html_subdir, html_filename)
+        html_content = "<!DOCTYPE html>\n" + driver.page_source
         with open(html_filepath, "w", encoding="utf-8") as file:
-            file.write(driver.page_source)
+            file.write(html_content)
         
         update_progress(f"Saved HTML: {html_filepath}")
         visited.add(current_url)
