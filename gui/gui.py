@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import filedialog
-from tkinter import messagebox
 import threading
 from gui.start_download import download_thread
 
@@ -10,16 +9,15 @@ def start_gui():
         download_directory = filedialog.askdirectory()
         if not download_directory:
             return
-        progress_text.delete(1.0, tk.END)  # Clear previous progress
+        progress_text.delete(1.0, tk.END)
         threading.Thread(target=download_thread, args=(base_url, download_directory, update_progress)).start()
-        root.withdraw()  # Hide the main window
-        progress_window.deiconify()  # Show the progress window
+        root.withdraw()
+        progress_window.deiconify()
 
-    def update_progress(message,color="black"):
+    def update_progress(message):
         progress_text.insert(tk.END, message + "\n")
         progress_text.see(tk.END)
 
-        # Update labels with relevant information
         if message.startswith("Opening:"):
             current_url_label.config(text=message.split("Opening: ")[-1])
         elif message.startswith("Asset:"):
@@ -31,7 +29,6 @@ def start_gui():
         elif message.startswith("Progress:"):
             progress = message.split("Progress: ")[-1]
             progress_label.config(text=progress)
-            
 
     root = tk.Tk()
     root.title("Website Downloader")
@@ -45,9 +42,8 @@ def start_gui():
     progress_window = tk.Toplevel(root)
     progress_window.title("Download Progress")
     progress_window.geometry("800x1000")
-    progress_window.withdraw()  # Hide initially
+    progress_window.withdraw()
 
-    # Design the progress interface
     progress_frame = tk.Frame(progress_window, padx=20, pady=20)
     progress_frame.pack(expand=True, fill=tk.BOTH)
 

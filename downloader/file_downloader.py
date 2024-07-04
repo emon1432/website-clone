@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 def download_file(url, directory, downloaded_assets, update_progress):
     if url in downloaded_assets:
-        return  # Skip if already downloaded
+        return
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -15,6 +15,6 @@ def download_file(url, directory, downloaded_assets, update_progress):
         with open(file_path, 'wb') as file:
             file.write(response.content)
         update_progress(f"Asset: {url}")
-        downloaded_assets.add(url)  # Add to the set of downloaded assets
+        downloaded_assets.add(url)
     except requests.RequestException as e:
         update_progress(f"Failed to download {url}: {e}")
