@@ -1,0 +1,384 @@
+file structure:
+website-clone
+    -downloader
+        - __init__.py
+        - assets_downloader.py
+        - downloader.py
+        - file_downloader.py
+        - link_extractor.py
+    -gui
+        - __init__.py
+        - gui.py
+        - start_download.py
+    .gitignore
+    main.py
+    README.md
+    requirements.txt
+
+downloader/assets_downloader.py
+```
+from urllib.parse import urljoin
+from bs4 import BeautifulSoup
+from downloader.file_downloader import download_file
+
+def download_assets(soup, base_url, download_directory, downloaded_assets, update_progress):
+    tags = {'img': 'src', 'link': 'href', 'script': 'src'}
+    for tag, attr in tags.items():
+        for element in soup.find_all(tag):
+            url = element.get(attr)
+            if url:
+                if not url.startswith(('http', 'https')):
+                    url = urljoin(base_url, url)
+                download_file(url, download_directory, downloaded_assets, update_progress)
+```
+downloader/downloader.py
+```
+import os
+import requests
+from urllib.parse import urljoin, urlparse
+from selenium import webdriver
+from bs4 import BeautifulSoup
+from downloader.link_extractor import get_all_links
+from downloader.assets_downloader import download_assets
+import time
+
+def start_download(base_url, download_directory, update_progress):
+    os.makedirs(download_directory, exist_ok=True)
+
+    chrome_options = webdriver.ChromeOptions()
+    prefs = {'download.default_directory': os.path.abspath(download_directory)}
+    chrome_options.add_experimental_option('prefs', prefs)
+    chrome_options.add_argument("--headless")
+
+    driver = webdriver.Chrome(options=chrome_options)
+
+    downloaded_assets = set()
+    visited = set()
+    urls_to_visit = {base_url}
+
+    while urls_to_visit:
+        current_url = urls_to_visit.pop()
+        if current_url in visited:
+            continue
+        
+        update_progress(f"Opening: {current_url}")
+        driver.get(current_url)
+        driver.implicitly_wait(2)
+
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        parsed_url = urlparse(current_url)
+        html_subdir = os.path.join(download_directory, os.path.dirname(parsed_url.path.lstrip('/')))
+        if not html_subdir:
+            html_subdir = download_directory
+        os.makedirs(html_subdir, exist_ok=True)
+        html_filename = os.path.basename(parsed_url.path) if os.path.basename(parsed_url.path) else 'index.html'
+        if os.path.isdir(os.path.join(html_subdir, html_filename)):
+            html_filename = 'index.html'
+        html_filepath = os.path.join(html_subdir, html_filename)
+        html_content = "<!DOCTYPE html>\n" + driver.page_source
+        with open(html_filepath, "w", encoding="utf-8") as file:
+            file.write(html_content)
+        
+        update_progress(f"Saved HTML: {html_filepath}")
+        visited.add(current_url)
+        new_links = get_all_links(driver, current_url, visited)
+        urls_to_visit.update(new_links)
+        update_progress(f"Found {len(new_links)} new links")
+        update_progress(f"Total URLs: {len(urls_to_visit) + len(visited)}")
+        update_progress(f"Total Visited URLs: {len(visited)}")
+        progress = len(visited) / (len(visited) + len(urls_to_visit)) * 100
+        update_progress(f"Progress: {progress:.2f}%")
+        
+        download_assets(soup, current_url, download_directory, downloaded_assets, update_progress)
+
+    driver.quit()
+```
+downloader/file_downloader.py
+```
+import os
+import requests
+from urllib.parse import urlparse
+
+def download_file(url, directory, downloaded_assets, update_progress):
+    if url in downloaded_assets:
+        return
+    try:
+        parsed_url = urlparse(url)
+        subdir = os.path.join(directory, os.path.dirname(parsed_url.path.lstrip('/')))
+        os.makedirs(subdir, exist_ok=True)
+        file_path = os.path.join(subdir, os.path.basename(parsed_url.path))
+
+        if os.path.exists(file_path):
+            update_progress(f"Skipped (already exists): {url}")
+            downloaded_assets.add(url)
+            return
+
+        response = requests.get(url)
+        response.raise_for_status()
+
+        with open(file_path, 'wb') as file:
+            file.write(response.content)
+
+        update_progress(f"Asset: {url}")
+        downloaded_assets.add(url)
+    except requests.RequestException as e:
+        update_progress(f"Failed to download {url}: {e}")
+```
+downloader/link_extractor.py
+```
+import time
+from urllib.parse import urljoin
+from bs4 import BeautifulSoup
+
+def get_all_links(driver, base_url, visited):
+    driver.get(base_url)
+    time.sleep(2)
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    links = set()
+    for a_tag in soup.find_all('a', href=True):
+        href = a_tag['href']
+        if href.endswith('.html'):
+            full_url = urljoin(base_url, href)
+            if full_url not in visited:
+                links.add(full_url)
+    return links
+```
+gui/gui.py
+```
+import tkinter as tk
+from tkinter import filedialog
+import threading
+from gui.start_download import download_thread
+
+def start_gui():
+    def start_download():
+        base_url = url_entry.get()
+        download_directory = filedialog.askdirectory()
+        if not download_directory:
+            return
+        progress_text.delete(1.0, tk.END)
+        threading.Thread(target=download_thread, args=(base_url, download_directory, update_progress)).start()
+        root.withdraw()
+        progress_window.deiconify()
+
+    def update_progress(message):
+        progress_text.insert(tk.END, message + "\n")
+        progress_text.see(tk.END)
+
+        if message.startswith("Opening:"):
+            current_url_label.config(text=message.split("Opening: ")[-1])
+        elif message.startswith("Asset:"):
+            asset_url_label.config(text=message.split("Asset: ")[-1])
+        elif message.startswith("Total Visited URLs:"):
+            total_visited_label.config(text=message.split("Total Visited URLs: ")[-1])
+        elif message.startswith("Total URLs:"):
+            total_urls_label.config(text=message.split("Total URLs: ")[-1])
+        elif message.startswith("Progress:"):
+            progress = message.split("Progress: ")[-1]
+            progress_label.config(text=progress)
+
+    root = tk.Tk()
+    root.title("Website Downloader")
+    
+    tk.Label(root, text="Base URL:").pack(pady=10)
+    url_entry = tk.Entry(root, width=50)
+    url_entry.pack(pady=5)
+
+    tk.Button(root, text="Download", command=start_download).pack(pady=20)
+
+    progress_window = tk.Toplevel(root)
+    progress_window.title("Download Progress")
+    progress_window.geometry("800x1000")
+    progress_window.withdraw()
+
+    progress_frame = tk.Frame(progress_window, padx=20, pady=20)
+    progress_frame.pack(expand=True, fill=tk.BOTH)
+
+    tk.Label(progress_frame, text="Website Downloader", font=("Arial", 16, "bold")).pack(pady=10)
+    
+    tk.Label(progress_frame, text="Total URLs: ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
+    total_urls_label = tk.Label(progress_frame, text="Calculating...")
+    total_urls_label.pack(pady=5)
+    
+    tk.Label(progress_frame, text="Total Visited: ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
+    total_visited_label = tk.Label(progress_frame, text="Calculating...")
+    total_visited_label.pack(pady=5)
+
+    tk.Label(progress_frame, text="Current URL : ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
+    current_url_label = tk.Label(progress_frame, text="")
+    current_url_label.pack(pady=5)
+    
+    tk.Label(progress_frame, text="Assets Downloaded: ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
+    asset_url_label = tk.Label(progress_frame, text="Fetching...")
+    asset_url_label.pack(pady=5)
+    
+    tk.Label(progress_frame, text="Progress: ", font=("Arial", 12, "bold", "underline")).pack(pady=5)
+    progress_label = tk.Label(progress_frame, text="Calculating...")
+    progress_label.pack(pady=5)
+    
+    progress_text = tk.Text(progress_frame)
+    progress_text.pack(expand=True, fill=tk.BOTH)
+
+    def close_progress_window():
+        progress_window.withdraw()
+        root.deiconify()
+
+    tk.Button(progress_frame, text="Close", command=close_progress_window).pack(pady=10)
+
+    root.mainloop()
+```
+gui/start_download.py
+```
+from downloader.downloader import start_download
+
+def download_thread(base_url, download_directory, update_progress):
+    try:
+        start_download(base_url, download_directory, update_progress)
+        update_progress("Download completed!")
+    except Exception as e:
+        update_progress(f"Error: {e}")
+```
+main.py
+```
+from gui.gui import start_gui
+
+if __name__ == "__main__":
+    start_gui()
+```
+requirements.txt
+```
+beautifulsoup4
+selenium
+requests
+tk
+```
+.gitignore
+```
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Selenium WebDriver binaries
+chromedriver
+geckodriver
+*.exe
+
+# GUI-specific files
+*.DS_Store
+*.log
+*.sqlite3
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# macOS
+*.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*.swp
+.swp
+
+# Log files
+*.log
+
+# Ignore database files
+*.db
+*.sqlite
+
+# Ignore virtual environment
+venv/
+ENV/
+env/
+```

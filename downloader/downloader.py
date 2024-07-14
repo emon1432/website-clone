@@ -33,16 +33,28 @@ def start_download(base_url, download_directory, update_progress):
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         parsed_url = urlparse(current_url)
         html_subdir = os.path.join(download_directory, os.path.dirname(parsed_url.path.lstrip('/')))
-        if not html_subdir:
-            html_subdir = download_directory
-        os.makedirs(html_subdir, exist_ok=True)
+        
+        if not os.path.exists(html_subdir):
+            try:
+                os.makedirs(html_subdir, exist_ok=True)
+            except OSError as e:
+                update_progress(f"Failed to create directory {html_subdir}: {e}")
+                continue
+        
         html_filename = os.path.basename(parsed_url.path) if os.path.basename(parsed_url.path) else 'index.html'
         if os.path.isdir(os.path.join(html_subdir, html_filename)):
             html_filename = 'index.html'
         html_filepath = os.path.join(html_subdir, html_filename)
+        
+        update_progress(f"Creating HTML file path: {html_filepath}")
+        
         html_content = "<!DOCTYPE html>\n" + driver.page_source
-        with open(html_filepath, "w", encoding="utf-8") as file:
-            file.write(html_content)
+        try:
+            with open(html_filepath, "w", encoding="utf-8") as file:
+                file.write(html_content)
+        except OSError as e:
+            update_progress(f"Failed to save HTML {html_filepath}: {e}")
+            continue
         
         update_progress(f"Saved HTML: {html_filepath}")
         visited.add(current_url)
