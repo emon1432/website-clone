@@ -8,7 +8,18 @@ To install the necessary packages, please make sure you have [Python](https://ww
 
 1. Clone the repository: `git clone git@github.com:emon1432/website-clone.git`
 2. Navigate to the project directory: `cd website-clone`
-3. Install the required packages: `pip install -r requirements.txt`
+3. Create a virtual environment (recommended): 
+#### Windows
+```
+python -m venv venv
+venv\Scripts\activate
+```
+#### macOS / Linux
+```
+python3 -m venv venv
+source venv/bin/activate
+```
+4. Install the required packages: `pip install -r requirements.txt`
 
 ## Usage
 
